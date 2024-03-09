@@ -1,0 +1,18 @@
+
+.env
+
+.erlang.cookie
+
+ca_certificate.srl
+
+certs/ca_certificate.pem
+
+certs/ca_key.pem
+
+certs/server_certificate.pem
+
+certs/server_certificate.pem.key
+
+consumer-test.js
+
+docker-compose-ssl-traefik copy.yml

@@ -1,0 +1,108 @@
+global:
+  sendAnonymousUsage: true
+  checknewversion: true
+
+entryPoints:
+  web:
+    address: ":80"
+  web-secure:
+    address: ":443"
+  rabbit-mq:
+    address: ":5671"
+    transport:
+      lifeCycle:
+        requestAcceptGraceTimeout: 0s
+        graceTimeOut: 10s
+
+api:
+  dashboard: true
+  debug: true
+  #insecure: true
+
+################################################################
+# Ping configuration
+################################################################
+
+# Enable ping
+ping: {}
+
+  # Name of the related entry point
+  #
+  # Optional
+  # Default: "traefik"
+  #
+  # entryPoint = "traefik"  
+
+################################################################
+# Docker configuration backend
+################################################################
+
+# Enable Docker configuration backend
+providers:
+  docker:
+    #endpoint: "unix:///var/run/docker.sock"
+    endpoint: "tcp://cluster:2375"
+    watch: true
+    exposedByDefault: false
+    # useBindPortIP: true
+    swarmMode: true
+
+################################################################
+# TLS Configuration
+################################################################
+
+tls:
+  options:
+    default:
+      minVersion: VersionTLS12
+      sniStrict: true
+      cipherSuites:
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+
+certificatesResolvers:
+  myresolver:
+    acme:
+      email: "jaychinut@live.com" # Change this to your email address
+      storage: "/acme.json"
+      httpChallenge:
+        entryPoint: "web"
+
+  ################################################################
+  # Rule to redirect HTTP to HTTPS
+  ################################################################
+  http:
+    routers:
+      http-to-https:
+        rule: "HostRegexp(`{host:.+}`)"
+        entrypoints:
+          - web
+        middlewares:
+          - redirect-to-https
+        service: noop
+
+    middlewares:
+      redirect-to-https:
+        redirectScheme:
+          scheme: "https"
+          permanent: true
+
+  ################################################################
+  # Rule for AMQP traffic on port 5671
+  ################################################################
+  tcp:
+    routers:
+      amqp-secure:
+        entryPoints:
+          - rabbit-mq
+        service: rabbitmq-service
+        tls:
+          passthrough: true
+
+    services:
+      rabbitmq-service:
+        loadBalancer:
+          servers:
+            - address: "rabbitmq1:5671" # Replace with your RabbitMQ server address
+            - address: "rabbitmq2:5671"
+            - address: "rabbitmq3:5671"

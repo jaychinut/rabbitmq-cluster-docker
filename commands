@@ -1,0 +1,36 @@
+#Run this script to join cluster on rabbitmq2 and rabbitmq3
+/usr/local/bin/cluster-entrypoint-ssl.sh rabbitmq1
+
+#Run these lines on rabbitmq1 to set user and set policies
+rabbitmqctl add_user tester secretPass && \
+rabbitmqctl set_permissions -p / tester ".*" ".*" ".*" && \
+rabbitmqctl set_topic_permissions -p / tester "(AMQP default)" ".*" ".*" && \
+rabbitmqctl set_user_tags tester administrator && \
+rabbitmqctl set_policy thycotic-mq-policy "^thycotic" '{"ha-mode":"exactly","ha-params":2,"ha-sync-mode":"automatic"}' --apply-to all && \
+rabbitmqctl set_policy test-mq-policy "^test" '{"ha-mode":"exactly","ha-params":2,"ha-sync-mode":"automatic"}' --apply-to all
+
+#SSL troubleshooting commands
+openssl x509 -in ./certs/ca_certificate.pem -noout -text
+openssl x509 -in ./certs/server_certificate.pem -noout -text
+openssl x509 -in ./certs/server_certificate.pem -noout -subject -issuer -DNS
+openssl verify -CAfile ./certs/ca_certificate.pem ./certs/server_certificate.pem
+openssl s_client -connect 127.0.0.1:5671 -showcerts
+openssl s_client -connect 127.0.0.1:12000 -showcerts
+
+#Create New CA and Certificate
+openssl req -x509 -newkey rsa:4096 -keyout ca_key.pem -out ca_certificate.pem -days 365
+openssl req -newkey rsa:4096 -keyout server_key.pem -out server_csr.pem -subj "/CN=rabbitmq-traefik" -addext "subjectAltName = DNS:rabbitmq1,DNS:rabbitmq2,DNS:rabbitmq3,DNS:rabbitmq,DNS:traefik" -nodes
+openssl x509 -req -in server_csr.pem -CA ca_certificate.pem -CAkey ca_key.pem -out server_certificate.pem -days 365 -CAcreateserial -subj "/CN=rabbitmq-traefik" -extfile <(echo "subjectAltName = DNS:rabbitmq1,DNS:rabbitmq2,DNS:rabbitmq3,DNS:rabbitmq,DNS:traefik")
+rm server_csr.pem && \
+mv ca_certificate.pem ca_key.pem server_certificate.pem server_key.pem ./certs && \
+mv ./certs/server_key.pem ./certs/server_certificate.pem.key
+
+#Run these commands to join the cluster manually from nodes rabbitmq2 and rabbitmq3
+rabbitmqctl stop_app
+rabbitmqctl join_cluster rabbit@rabbitmq1
+rabbitmqctl start_app
+rabbitmq-diagnostics cluster_status
+
+#Run these commands to test amqps/tls traffic - in two seperate terminals
+node consumer.js
+node producer.js

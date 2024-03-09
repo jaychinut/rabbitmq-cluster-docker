@@ -1,0 +1,120 @@
+# traefik.yml
+
+api:
+  dashboard: true
+  debug: true
+  insecure: true
+
+entryPoints:
+  web:
+    address: ":80"
+  websecure:
+    address: ":443"
+  rabbitmq-management:
+    address: ":15672"
+  rabbitmq:
+    address: ":5671"
+
+certificates:
+  - certFile: "/etc/rabbitmq/certs/server_certificate.pem"
+    keyFile: "/etc/rabbitmq/certs/server_certificate.pem.key"
+    caFile: "/etc/rabbitmq/certs/ca_certificate.pem"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+
+# http:
+#   routers:
+#     rabbitmq-management:
+#       rule: Host(`rabbitmq1`)
+#       service: rabbitmq-management
+#       entryPoints:
+#         - web  # Corrected entry point name
+
+  # services:
+  #   rabbitmq-management:
+  #     loadBalancer:
+  #       servers:
+  #         - url: "http://rabbitmq1:15672"
+  #         - url: "http://rabbitmq2:15672"
+  #         - url: "http://rabbitmq3:15672"
+
+
+# tcp:
+#   routers:
+#     rabbitmq:
+#       entryPoints:
+#         - rabbitmq
+#       rule: "HostSNI(`*`)"
+
+#   services:
+#     rabbitmq-svc:
+#       loadBalancer:
+#         servers:
+#           - address: "rabbitmq1:5671"
+#           - address: "rabbitmq2:5671"
+#           - address: "rabbitmq3:5671"
+#       tls:
+#         passthrough: true  # Set to true for TLS passthrough
+
+#   middlewares:
+#     rabbitmq-tls:
+#       chain:
+#         - tcp
+#         - tls
+
+tcp:
+  routers:
+    rabbitmq:
+      service: rabbitmq-svc
+      entryPoints:
+        - rabbitmq  # Corrected entry point name
+      rule: "HostSNI(`*`)"
+      tls:
+        certResolver: default
+
+  services:
+    rabbitmq-svc:
+      loadBalancer:
+        servers:
+          - address: "rabbitmq1:5671"
+            weight: 10
+            check:
+              interval: "2000"
+              rise: 2
+              fall: 2
+            tls:
+              certFile: "/etc/rabbitmq/certs/server_certificate.pem"
+              keyFile: "/etc/rabbitmq/certs/server_certificate.pem.key"
+              caFile: "/etc/rabbitmq/certs/ca_certificate.pem"
+              sni: true
+          - address: "rabbitmq2:5671"
+            weight: 10
+            check:
+              interval: "2000"
+              rise: 2
+              fall: 2
+            tls:
+              certFile: "/etc/rabbitmq/certs/server_certificate.pem"
+              keyFile: "/etc/rabbitmq/certs/server_certificate.pem.key"
+              caFile: "/etc/rabbitmq/certs/ca_certificate.pem"
+              sni: true
+          - address: "rabbitmq3:5671"
+            weight: 10
+            check:
+              interval: "2000"
+              rise: 2
+              fall: 2
+            tls:
+              certFile: "/etc/rabbitmq/certs/server_certificate.pem"
+              keyFile: "/etc/rabbitmq/certs/server_certificate.pem.key"
+              caFile: "/etc/rabbitmq/certs/ca_certificate.pem"
+              sni: true
+
+  # middlewares:
+  #   rabbitmq-management-stripprefix:
+  #     stripPrefix:
+  #       prefixes:
+  #         - "/rabbitmq-management"  # Corrected path

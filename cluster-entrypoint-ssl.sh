@@ -1,5 +1,7 @@
 #!/bin/bash
-
+# set -e
+# Copy custom RabbitMQ configuration
+cp /etc/rabbitmq/certs/rabbitmq.conf /etc/rabbitmq/
 # Set the RabbitMQ node name
 NODE_NAME="rabbit@$(hostname)"
 
